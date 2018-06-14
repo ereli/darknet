@@ -1,6 +1,8 @@
 from ctypes import *
 import math
 import random
+import sys
+import os
 
 def sample(probs):
     s = sum(probs)
@@ -44,8 +46,8 @@ class METADATA(Structure):
 
     
 
-#lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
-lib = CDLL("libdarknet.so", RTLD_GLOBAL)
+lib = CDLL("/home/username/projects/ambrosia/darknet/libdarknet.so", RTLD_GLOBAL)
+#lib = CDLL("libdarknet.so", RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -136,21 +138,42 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
         for i in range(meta.classes):
             if dets[j].prob[i] > 0:
                 b = dets[j].bbox
-                res.append((meta.names[i], dets[j].prob[i], (b.x, b.y, b.w, b.h)))
+                res.append((meta.names[i],i, dets[j].prob[i], (b.x, b.y, b.w, b.h)))
     res = sorted(res, key=lambda x: -x[1])
     free_image(im)
     free_detections(dets, num)
     return res
-    
+
+
+def process(filename):
+    def convert(i):
+        return str(int(i))
+    file_output,suffix =  os.path.splitext(filename)
+    file_output = file_output+".txt"
+    r = detect(net, meta, filename)
+    for i in r:
+        idx =str(i[1])
+        shape = ' '.join(map(convert, i[3]))
+        text = (idx + "\n" + shape+"\n")
+        #print(text, file=file_output)
+        with open(file_output, "a") as out:
+            out.write(text)
+    print("writing...: "+file_output)
 if __name__ == "__main__":
     #net = load_net("cfg/densenet201.cfg", "/home/pjreddie/trained/densenet201.weights", 0)
     #im = load_image("data/wolf.jpg", 0, 0)
     #meta = load_meta("cfg/imagenet1k.data")
     #r = classify(net, meta, im)
     #print r[:10]
-    net = load_net("cfg/tiny-yolo.cfg", "tiny-yolo.weights", 0)
+    net = load_net("cfg/yolov2.cfg", "yolov2.weights", 0)
     meta = load_meta("cfg/coco.data")
-    r = detect(net, meta, "data/dog.jpg")
-    print r
-    
+    #r = detect(net, meta, "data/dog.jpg")
+    #print r
+    import glob
+    types = ('*.jpeg', '*.jpg', '*.png','*.gif') # the tuple of file types
+    files_grabbed = []
+    for files in types:
+        files_grabbed.extend(glob.glob(sys.argv[1]+"/"+files))
+    for i in files_grabbed:
+        process(i)
 
